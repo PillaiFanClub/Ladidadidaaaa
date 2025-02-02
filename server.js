@@ -2,6 +2,8 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const { spawn } = require("child_process");
+
 
 const app = express();
 const server = http.createServer(app);
@@ -105,13 +107,53 @@ io.on("connection", (socket) => {
     }, 3000);
   });
 
+  // New event: Handle running the Python script for scoring
+socket.on("runScoringScript", ({ pin, audioData }) => {
+  const game = games[pin];
+  if (!game) return;
+
+  // Spawn the Python script
+  const pythonProcess = spawn("python3", ["scripts/scoring.py"]);
+
+  // Send the audio data to the Python process
+  pythonProcess.stdin.write(Buffer.from(audioData));
+  pythonProcess.stdin.end();
+
+  let score = 0;
+  pythonProcess.stderr.on("data", (data) => {
+    score = parseInt(data.toString().trim(), 10);
+  });
+  pythonProcess.stdout.on("data", (data) => {
+    console.log("Python output: %s", data)
+  });
+
+  pythonProcess.on("close", (code) => {
+    if (code !== 0) {
+      console.error(`Python script exited with code ${code}`);
+      return;
+    }
+
+    // Emit the score back to the player
+    if (game.players[socket.id]) {
+      game.players[socket.id].score += score;
+    }
+
+    socket.emit("playerSendScore", { pin, score });
+  });
+
+  pythonProcess.stderr.on("data", (data) => {
+    console.error("Python script error:", data.toString());
+  });
+});
+
   // Player sends score
   socket.on("playerSendScore", ({ pin, score }) => {
     const game = games[pin];
     if (!game) return;
-    if (game.players[socket.id]) {
-      game.players[socket.id].score += score;
-    }
+    // if (game.players[socket.id]) {
+      // game.players[socket.id].score += score;
+    // }
+    // TODO score is incremented twice
   });
 
   // Host play again button is pressed

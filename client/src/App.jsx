@@ -5,6 +5,9 @@ import Player from "./components/Player";
 import Leaderboard from "./components/Leaderboard";
 import "./styles.css";
 import "./App.css";
+// const Process = require("child_process").spawn;
+// const { exec } = require("child_process");
+
 
 function Lyrics({ lyrics, songTimeLeft, songDuration }) {
   // Only show lyrics while the song is playing
@@ -71,6 +74,9 @@ export default function App() {
   const [joinError, setJoinError] = useState("");
   const [playerJoined, setPlayerJoined] = useState(false);
   const [playerStatus, setPlayerStatus] = useState("");
+
+  // recording state
+  const [isRecording, setIsRecording] = useState(false);
 
   // Fetch lyrics dynamically whenever the selected song changes
   useEffect(() => {
@@ -151,9 +157,28 @@ export default function App() {
       setJoinError(message);
     });
 
-    // Instruct player to start or stop recording
+    // // Instruct player to start or stop recording
+    // socket.on("startRecording", ({ songId }) => {
+    //   setPlayerStatus(`Recording started for song: ${songId} ...`);
+    //   socket.emit("runScoringScript", { pin });
+    // });
+
     socket.on("startRecording", ({ songId }) => {
-      setPlayerStatus(`Recording started for song: ${songId} ...`);
+      console.log(`Recording and scoring started for song: ${songId}...`);
+      setPlayerStatus(`Recording and scoring started for song: ${songId}...`);
+      // let DURATION = 10
+      startRecording(10)
+
+      // // Run the Python script locally on the client device
+      // runPythonScript()
+      //   .then((score) => {
+      //     setPlayerStatus("Recording and scoring completed! Score received.");
+      //     socket.emit("playerSendScore", { pin, score });
+      //   })
+      //   .catch((error) => {
+      //     console.error("Error running Python script:", error);
+      //     setPlayerStatus("Error during recording/scoring.");
+      //   });
     });
 
     socket.on("stopRecording", () => {
@@ -231,6 +256,95 @@ export default function App() {
     socket.emit("playerJoinGame", { pin, playerName: name });
   }
 
+  async function runPythonScript() {
+    return new Promise((resolve, reject) => {
+      // Use the WebAssembly-based Python environment like Pyodide or any other setup,
+      // or you can run a local script using a native Python runtime if the app is not web-based.
+
+      let score = null;
+      // Example: If using Node.js Electron or local browser client setup:
+      // const pythonProcess = window.spawn("python3", ["scripts/scoring.py"]);
+      // Process(process.argv[0], ["myApplicationPath", "otherArgs"], { detached: true, stdio: ['ignore'] });
+      // pythonProcess = Process.spawn("python3", ["scripts/scoring.py"], { shell: true, detached: true });
+      exec("python3 scripts/scoring.py", (error, stdout, stderr) => {
+        if (error) {
+          console.error("Error executing script");
+          return;
+        }
+        if (stdout) {
+          console.log("Python script output: ", stdout)
+        }
+        if (stderr) {
+          const parsedScore = parseInt(data.toString().trim(), 10);
+          if (!isNaN(parsedScore)) {
+            score = parsedScore;
+          }
+        }
+      })
+
+
+      // pythonProcess.stdout.on("data", (data) => {
+      //   console.log("Python output:", data.toString());
+      // });
+
+      // pythonProcess.stderr.on("data", (data) => {
+      //   const parsedScore = parseInt(data.toString().trim(), 10);
+      //   if (!isNaN(parsedScore)) {
+      //     score = parsedScore;
+      //   }
+      // });
+
+      // pythonProcess.on("close", (code) => {
+      //   if (code !== 0 || score === null) {
+      //     reject(`Python script exited with code ${code}`);
+      //   } else {
+      //     resolve(score);
+      //   }
+      // });
+    });
+  }
+
+  function startRecording(durationMs) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.warn("getUserMedia is not supported in this browser.");
+      return;
+    }
+
+    setIsRecording(true);
+
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((stream) => {
+        const mediaRecorder = new MediaRecorder(stream);
+        const chunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          setIsRecording(false);
+          const blob = new Blob(chunks, { type: "audio/ogg; codecs=opus" });
+
+          // Convert the blob to a buffer and send it to the server
+          const buffer = await blob.arrayBuffer();
+          const audioData = new Uint8Array(buffer);
+
+          // Send the audio data to the server for Python processing
+          socket.emit("runScoringScript", { pin, audioData });
+        };
+
+        mediaRecorder.start();
+        setTimeout(() => mediaRecorder.stop(), durationMs);
+      })
+      .catch((error) => {
+        setIsRecording(false);
+        console.error("Error accessing microphone:", error);
+      });
+  }
+
   function handlePlayAgain() {
     // Only the HOST would have the pin stored in `hostPin`.
     socket.emit("hostPlayAgain", { pin: hostPin });
@@ -241,7 +355,7 @@ export default function App() {
       <h1>Arcade Karaoke</h1>
 
       {gameOver ? (
-        <div className= "gameOver" style={{ marginTop: "1rem" }}>
+        <div className="gameOver" style={{ marginTop: "1rem" }}>
           <h2>Game Over!</h2>
           {leaderboard.length > 0 && (
             <Leaderboard

@@ -13,6 +13,7 @@ from scipy.spatial.distance import euclidean
 from numpy.fft import rfft, irfft
 import multiprocessing
 from functools import partial
+import sys
 
 def circular_semitone_distance(a, b):
     """
@@ -433,6 +434,8 @@ def main():
             scores = scorer.calculate_score(performance)
             print("\nFinal Scores:")
             print(f"Melody Similarity Score: {scores['melody_score']:.1f}%")
+            print(f"{scores['melody_score']:.1f}", file=sys.stderr) # PRINT FINAL SCORE TO STDERR
+            print()
         else:
             print("\nRecording cancelled. No score calculated.")
             
