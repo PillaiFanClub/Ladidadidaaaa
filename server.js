@@ -3,6 +3,8 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const { spawn } = require("child_process");
+var path = require('path');
+const fs = require("fs");
 
 
 const app = express();
@@ -107,17 +109,59 @@ io.on("connection", (socket) => {
     }, 3000);
   });
 
+  const ref_audios = {
+    "imjustken": "assets/reference_vocals/ImJustKen_Vocal.wav",
+    "imjustken_cut": "assets/reference_vocals/cutijk.wav"
+  };
+  
+
   // New event: Handle running the Python script for scoring
 socket.on("runScoringScript", ({ pin, audioData }) => {
   const game = games[pin];
   if (!game) return;
 
+  // setup
+  const { songId } = game; 
+  const refFilename = ref_audios[songId];
+  if (!refFilename) {
+    console.error(`No reference audio mapped for songId: ${songId}`);
+    return;
+  }
+  const referencePath = refFilename;
+  const performancePath = path.join(__dirname, "temp", `perf_${Date.now()}_${socket.id}.ogg`);
+
+  // Save the performance audio to a file
+  // try {
+  //   // fs.writeFileSync(performancePath, Buffer.from(audioData));
+  //   fs.writeFile(performancePath, Buffer.from(audioData));
+  // } catch (err) {
+  //   console.error("Failed to write performance audio file:", err);
+  //   return;
+  // }
+  fs.writeFile(performancePath, Buffer.from(audioData), (err) => {
+    if (err) {
+      console.error("Error saving audio file:", err);
+      socket.emit("fileSaved", { success: false, error: err.toString() });
+    } else {
+      console.log("Audio file saved:", performancePath);
+      
+      // If you need to run further scoring logic here, do it now.
+      // E.g., call a Python script or do your Node-based processing.
+
+      // socket.emit("fileSaved", { success: true, filePath });
+    }
+  });
+
   // Spawn the Python script
-  const pythonProcess = spawn("python3", ["scripts/scoring.py"]);
+  const pythonProcess = spawn("python3", [
+    "scripts/scoring.py",
+    referencePath,
+    performancePath
+  ]);
 
   // Send the audio data to the Python process
-  pythonProcess.stdin.write(Buffer.from(audioData));
-  pythonProcess.stdin.end();
+  // pythonProcess.stdin.write(Buffer.from(audioData));
+  // pythonProcess.stdin.end();
 
   let score = 0;
   pythonProcess.stderr.on("data", (data) => {

@@ -6,6 +6,7 @@ const SONGS = [
   { id: "diewithasmile", title: "Die With A Smile" },
   { id: "dancingqueen", title: "Dancing Queen" },
   { id: "imjustken", title: "I'm Just Ken" },
+  { id: "imjustken_cut", title: "I'm Just Ken (Cut)" },
   { id: "testsong", title: "Ethan Kinda Stinky NGL" },
 ];
 
