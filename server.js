@@ -1,4 +1,5 @@
 const express = require("express");
+const { exec } = require("child_process");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
@@ -16,6 +17,27 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.static("public")); // Serves index.html, etc.
+
+// app.post("/play-song", (req, res) => {
+//   console.log("/play-song was called");
+//   const { songId } = req.body;
+
+//   if (!songId) {
+//     return res.status(400).json({ error: "Missing songId" });
+//   }
+
+//   // Execute the Python script to play the song
+//   const command = `python3 scripts/play_song.py ${songId}`;
+//   exec(command, (error, stdout, stderr) => {
+//     if (error) {
+//       console.error(`Error executing play_song.py: ${error.message}`);
+//       return res.status(500).json({ error: "Failed to play song." });
+//     }
+
+//     console.log(`play_song.py output: ${stdout}`);
+//     res.status(200).json({ message: `Playing song ${songId}` });
+//   });
+// });
 
 /**
  * In-memory store for games, keyed by 6-digit PIN.
@@ -86,20 +108,37 @@ io.on("connection", (socket) => {
     // 1) 3-second countdown
     io.in(pin).emit("countdownStart", { countdownSeconds: 3 });
 
-    // 2) After 3 seconds, start recording
+    // 2) After 3 seconds, start recording and play song
     setTimeout(() => {
       game.startTime = Date.now();
+
+      // play song
+      exec(
+        `python3 scripts/play_song.py ${songId}`,
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error playing song: ${error.message}`);
+            io.to(game.hostSocketId).emit("playbackError", {
+              message: "Failed to play song.",
+            });
+            return;
+          }
+          console.log(`Song playback output: ${stdout}`);
+        }
+      );
+
+      // Emit events to all players: song starts and recording begins
+      // io.in(pin).emit("playSong", { songId });
       io.in(pin).emit("startRecording", { songId });
+
       io.to(game.hostSocketId).emit("songStart", {
         durationSec: songDurationSec,
         startedAt: game.startTime,
       });
 
-      // 3) Stop recording after `songDurationSec`
+      // Stop recording after `songDurationSec`
       setTimeout(() => {
         io.in(pin).emit("stopRecording");
-
-        // wait 2 seconds for scores
         setTimeout(() => endGame(pin), 2000);
       }, songDurationSec * 1000);
     }, 3000);
