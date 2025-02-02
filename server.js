@@ -2,35 +2,46 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const path = require("path");
+
+// Use play-sound
+const player = require("play-sound")(); // This defaults to searching for 'afplay', 'mplayer', or 'mpg123' etc.
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    // origin: "http://0.0.0.0:5173", // Allow requests only from this frontend origin
-    methods: ["GET", "POST"], // Allow GET and POST requests
-    allowedHeaders: ["my-custom-header"], // Optional, if you have specific headers to allow
-    credentials: true, // Allow credentials (cookies, authorization headers, etc.)
+    methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
 app.use(cors());
-app.use(express.static("public")); // Serves index.html, etc.
+app.use(express.static("public"));
 
-/**
- * In-memory store for games, keyed by 6-digit PIN.
- *
- * games[pin] = {
- *   hostSocketId: string,
- *   players: {
- *     [socketId]: { name: string, score: number }
- *   },
- *   isStarted: boolean,
- *   songId: string,
- *   songDurationSec: number,
- *   startTime: number
- * }
- */
+// If you also want to serve files (optional):
+app.use(
+  "/assets",
+  express.static(path.join(__dirname, "Ladidadidaaaa", "assets"))
+);
+
+// **Map** to your .wav files (on disk) for the server to play:
+const songMap = {
+  diewithasmile: {
+    instrumentals: path.join(__dirname, "Ladidadidaaaa", "assets", "reference_instrumental", "DieWithASmile_Instrumental.wav"),
+    vocals: path.join(__dirname, "Ladidadidaaaa", "assets", "reference_vocals", "DieWithASmile_Vocal.wav"),
+  },
+  dancingqueen: {
+    instrumentals: path.join(__dirname, "Ladidadidaaaa", "assets", "reference_instrumental", "DancingQueen_Instrumental.wav"),
+    vocals: path.join(__dirname, "Ladidadidaaaa", "assets", "reference_vocals", "DancingQueen_Vocal.wav"),
+  },
+  imjustken: {
+    instrumentals: path.join(__dirname, "Ladidadidaaaa", "assets", "reference_instrumental", "ImJustKen_Instrumental.wav"),
+    vocals: path.join(__dirname, "Ladidadidaaaa", "assets", "reference_vocals", "ImJustKen_Vocal.wav"),
+  },
+};
+
+// In-memory store for games
 const games = {};
 
 function generateGamePin() {
@@ -50,6 +61,7 @@ io.on("connection", (socket) => {
       songId: null,
       songDurationSec: 0,
       startTime: null,
+      currentAudio: null, // We'll store the audio process here if we want to stop/kill it
     };
 
     socket.join(pin);
@@ -74,7 +86,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Host starts the game (3-sec countdown, etc.)
+  // Host starts the game
   socket.on("hostStartGame", ({ pin, songId, songDurationSec }) => {
     const game = games[pin];
     if (!game || game.isStarted) return;
@@ -83,55 +95,76 @@ io.on("connection", (socket) => {
     game.songId = songId;
     game.songDurationSec = songDurationSec;
 
-    // 1) 3-second countdown
+    const songData = songMap[songId];
+    if (!songData) {
+      console.error(`Song ID "${songId}" not found in songMap`);
+      return;
+    }
+    console.log(songData.instrumentals);
+    // 1) Notify clients of 3-second countdown
     io.in(pin).emit("countdownStart", { countdownSeconds: 3 });
 
-    // 2) After 3 seconds, start recording
+    // 2) After 3 seconds, start playback (on the SERVER) and notify clients
     setTimeout(() => {
       game.startTime = Date.now();
+
+      
+      // Play the audio on the server machine:
+      const audioProcess = player.play(songData.instrumentals, (err) => {
+        if (err) console.error("Error playing audio:", err);
+      });
+      // Store reference so we can stop it if needed
+      game.currentAudio = audioProcess;
+
+      // Let clients know the track started and they should start recording
       io.in(pin).emit("startRecording", { songId });
+
       io.to(game.hostSocketId).emit("songStart", {
         durationSec: songDurationSec,
         startedAt: game.startTime,
       });
 
-      // 3) Stop recording after `songDurationSec`
+      // 3) Stop after `songDurationSec`
       setTimeout(() => {
+        // Stop the audio if it's still running
+        if (game.currentAudio && typeof game.currentAudio.kill === "function") {
+          game.currentAudio.kill();
+        }
+
         io.in(pin).emit("stopRecording");
 
-        // wait 2 seconds for scores
+        // wait 2 seconds for any final scores, then end game
         setTimeout(() => endGame(pin), 2000);
       }, songDurationSec * 1000);
-    }, 3000);
+
+    }, 3000); // End of setTimeout for the countdown
   });
 
   // Player sends score
   socket.on("playerSendScore", ({ pin, score }) => {
     const game = games[pin];
     if (!game) return;
+
     if (game.players[socket.id]) {
       game.players[socket.id].score += score;
     }
   });
 
-  // Host play again button is pressed
+  // Host Play Again
   socket.on("hostPlayAgain", ({ pin }) => {
     const game = games[pin];
     if (!game) return;
 
-    // Reset the game state so we can start a new round:
+    // Reset for a new round, but keep players
     game.isStarted = false;
     game.songId = null;
     game.songDurationSec = 0;
     game.startTime = null;
 
-    // We keep the players and their scores – do NOT clear game.players
-
-    // Tell only the host (or everyone) that the game can be reset:
     io.in(pin).emit("gameReset");
   });
 
-  // Disconnect cleanup
+  // Cleanup on disconnect
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
 
@@ -141,6 +174,10 @@ io.on("connection", (socket) => {
 
       // If host left
       if (game.hostSocketId === socket.id) {
+        // Stop audio if playing
+        if (game.currentAudio && typeof game.currentAudio.kill === "function") {
+          game.currentAudio.kill();
+        }
         io.in(pin).emit("gameOver");
         delete games[pin];
         break;
@@ -158,6 +195,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Helper function to end the game
   function endGame(pin) {
     const game = games[pin];
     if (!game) return;
@@ -169,7 +207,7 @@ io.on("connection", (socket) => {
     io.in(pin).emit("gameOver");
     io.to(game.hostSocketId).emit("showLeaderboard", leaderboard);
 
-    // Also update the host’s player list so the Song Selection screen sees the new totals
+    // Update the host’s player list
     io.to(game.hostSocketId).emit("updatePlayerList", {
       players: Object.values(game.players),
     });
@@ -177,7 +215,7 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const SERVER = "0.0.0.0";
-server.listen(PORT, SERVER, () => {
-  console.log("Server running on port " + PORT);
+const HOST = "0.0.0.0";
+server.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
 });
