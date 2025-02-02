@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    --bg-color: #0f0f0f;
+    /* Arcade black background */
+    --neon-green: #39ff14;
+    /* Neon-like green */
+    --neon-pink: #ff0080;
+    /* Neon-like magenta/pink */
+    --text-color: #e0e0e0;
+    /* Light grey text color for readability */
+    --font-main: 'Press Start 2P', cursive, sans-serif;
+}
+
+html, body {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+
+html, body {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    font-size: 14px;
+    background-image: url('./background5.webp');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;  /* This prevents the background from scrolling */
+    min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    color: var(--neon-green);
+    text-shadow: 0 0 5px var(--neon-green);
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+button {
+    font-family: var(--font-main);
+    color: var(--text-color);
+    background: var(--neon-pink);
+    border: none;
+    border-radius: 4px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin: 6px 0;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 8px var(--neon-pink);
+}
+
+input {
+    font-family: var(--font-main);
+    background: #222;
+    color: #fff;
+    border: 1px solid var(--neon-green);
+    margin-bottom: 1rem;
+    padding: 5px;
+    width: 200px;
+}
+
+#root {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+    text-align: center;
+}
+
+.section {
+    background-color: rgba(0, 0, 0, 0.85);  /* Darker background */
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 2px solid rgba(57, 255, 20, 0.3);  /* Subtle neon border */
+    max-width: 600px;
+    margin: 1rem auto;  /* Center and reduce vertical spacing */
+}
+.section h2, 
+.section h3 {
+    margin: 0.5rem 0;  /* Reduce vertical margins */
+}
+
+/* Make the game info more compact */
+.section > div {
+    margin: 0.75rem 0;  /* Consistent spacing between sections */
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Basic list style */
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+/* Countdown highlight */
+.countdown-number {
+    font-size: 2rem;
+    color: var(--neon-pink);
+    text-shadow: 0 0 5px var(--neon-pink);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.25);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Timer highlight */
+.timer {
+    font-size: 1.5rem;
+    color: var(--neon-green);
+    text-shadow: 0 0 3px var(--neon-green);
+    animation: glow 1.5s infinite;
+}
+
+@keyframes glow {
+
+    0%,
+    100% {
+        text-shadow: 0 0 10px var(--neon-green);
+    }
+
+    50% {
+        text-shadow: 0 0 20px var(--neon-green);
+    }
+}
+
+
+/* Leaderboard list style */
+#leaderboard-list li {
+    border-bottom: 1px dashed #444;
+    padding: 4px 0;
+}
+
+/* Misc. spacing & layout */
+label {
+    display: block;
+    margin: 0.5rem 0 0.2rem;
+}
+

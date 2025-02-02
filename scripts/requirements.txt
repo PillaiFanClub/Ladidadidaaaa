@@ -1,0 +1,8 @@
+librosa
+numpy
+sounddevice
+soundfile
+pygame
+matplotlib
+scipy
+fastdtw
