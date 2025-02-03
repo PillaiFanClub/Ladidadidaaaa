@@ -95,6 +95,35 @@ export default function App() {
       });
   }, [songId]);
 
+  // // play song lol
+  // useEffect(() => {
+  //   // Play the song when the 'playSong' event is received
+  //   socket.on("playSong", ({ songId }) => {
+  //     console.log(`Playing song with ID: ${songId}`);
+
+  //     // Use the Node.js child process (local server-side approach)
+  //     // Note: This requires the frontend to be capable of executing system commands, like in an Electron app.
+
+  //     // Alternatively, execute a fetch request if running locally on the same machine.
+  //     try {
+  //       // Make a request to an endpoint on your local Node.js server
+  //       fetch("/play-song", {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //         },
+  //         body: JSON.stringify({ songId }),
+  //       });
+  //     } catch (error) {
+  //       console.error("Error calling song playback:", error);
+  //     }
+  //   });
+
+  //   return () => {
+  //     socket.off("playSong");
+  //   };
+  // }, []);
+
   // Socket event setup
   useEffect(() => {
     // Host receives a 'pin' upon creating a game
@@ -241,7 +270,7 @@ export default function App() {
       <h1>Arcade Karaoke</h1>
 
       {gameOver ? (
-        <div className= "gameOver" style={{ marginTop: "1rem" }}>
+        <div className="gameOver" style={{ marginTop: "1rem" }}>
           <h2>Game Over!</h2>
           {leaderboard.length > 0 && (
             <Leaderboard
