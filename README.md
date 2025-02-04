@@ -1,6 +1,6 @@
 # Arcade Karaoke
 
-🏆 **Winner of the AWS Award at Hack@Brown 2025!**
+🏆 **Winner of the AWS Award for Best Design at Hack@Brown 2025!**
 
 A multiplayer karaoke game created during Brown University's Hack@Brown 2025 hackathon. This project allows users to host karaoke sessions and have players join remotely using their phones. The game includes pitch detection and scoring algorithms to evaluate singing performances.
 
